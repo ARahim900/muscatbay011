@@ -1,0 +1,5 @@
+{
+  "name": "Muscat Bay Utilities Dashboard",
+  "description": "A comprehensive dashboard for monitoring and analyzing utility consumption for Water, Electricity, HVAC, Firefighting, and STP Plant at Muscat Bay. Features detailed analytics, responsive design, and a dark mode.",
+  "requestFramePermissions": []
+}
