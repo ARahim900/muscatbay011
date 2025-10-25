@@ -2,41 +2,9 @@ import React, { useState, type ComponentType } from 'react';
 import Card from '../../ui/Card';
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
-import { Droplets, Recycle, Truck, DollarSign, TrendingUp, BarChart2, Percent, Droplets as DropletsIcon, Plus, ChevronDown } from 'lucide-react';
-
-// --- MOCK DATA ---
-const kpiData = [
-  { icon: Droplets, title: 'INLET SEWAGE', value: '248,371 m³', subtitle: 'Range: Jul-24 - Sep-25', iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
-  { icon: Recycle, title: 'TSE FOR IRRIGATION', value: '237,514 m³', subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
-  { icon: Truck, title: 'TANKER TRIPS', value: '4,292 trips', subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
-  { icon: DollarSign, title: 'GENERATED INCOME', value: '19314.00 OMR', subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
-  { icon: TrendingUp, title: 'WATER SAVINGS', value: '313503.04 OMR', subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
-  { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: '332817.04 OMR', subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
-  { icon: Percent, title: 'TREATMENT EFFICIENCY', value: '95.6%', subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
-  { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: '543 m³', subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
-];
-
-const waterVolumesData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), inlet: 15000 + Math.random() * 2000, output: 14000 + Math.random() * 2000 }));
-const economicImpactData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), impact: 15000 + Math.random() * 12000 }));
-const tankerOperationsData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), trips: 150 + Math.random() * 300 }));
-
-const dailyOperationsData = Array.from({ length: 30 }, (_, i) => {
-    const inlet = 300 + Math.random() * 400;
-    const output = inlet * (0.8 + Math.random() * 0.25);
-    const trips = Math.floor(Math.random() * 20);
-    const income = trips * 4.5;
-    const savings = output * 1.32;
-    return {
-        date: `0${i + 1}/09/2025`.slice(-10),
-        inlet: Math.round(inlet),
-        tseOutput: Math.round(output),
-        efficiency: (output / inlet) * 100,
-        tankerTrips: trips,
-        income: income.toFixed(2),
-        savings: savings.toFixed(2),
-        totalImpact: (income + savings).toFixed(2),
-    };
-});
+import { Droplets, Recycle, Truck, DollarSign, TrendingUp, BarChart2, Percent, Droplets as DropletsIcon, Plus, ChevronDown, AlertCircle } from 'lucide-react';
+import { useStpPlant } from '../../../hooks/useStpPlant';
+import type { StpPlantRecord } from '../../../lib/stpPlantService';
 
 
 // --- COMPONENTS ---
@@ -78,7 +46,131 @@ const Dashboard: React.FC = () => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
     const [selectedDailyMonth, setSelectedDailyMonth] = useState('September 2025');
-    
+
+    // Fetch data from Supabase
+    const { records, statistics, monthlyData, loading, error } = useStpPlant();
+
+    // Format numbers for display
+    const formatNumber = (num: number) => num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const formatDecimal = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // Prepare KPI data from live statistics
+    const kpiData = [
+        { icon: Droplets, title: 'INLET SEWAGE', value: `${formatNumber(statistics.totalInletSewage)} m³`, subtitle: `${statistics.recordCount} records`, iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+        { icon: Recycle, title: 'TSE FOR IRRIGATION', value: `${formatNumber(statistics.totalTreatedWater)} m³`, subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+        { icon: Truck, title: 'TANKER TRIPS', value: `${formatNumber(statistics.totalTankerTrips)} trips`, subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
+        { icon: DollarSign, title: 'GENERATED INCOME', value: `${formatDecimal(statistics.totalTankerIncome)} OMR`, subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+        { icon: TrendingUp, title: 'WATER SAVINGS', value: `${formatDecimal(statistics.totalWaterSavings)} OMR`, subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+        { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: `${formatDecimal(statistics.totalEconomicImpact)} OMR`, subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
+        { icon: Percent, title: 'TREATMENT EFFICIENCY', value: `${statistics.treatmentEfficiency.toFixed(1)}%`, subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
+        { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: `${formatNumber(statistics.averageDailyInlet)} m³`, subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
+    ];
+
+    // Get unique months from records for dropdown
+    const availableMonths = React.useMemo(() => {
+        console.log('Building month list from', records.length, 'records');
+        console.log('Sample J361 values:', records.slice(0, 5).map(r => r.J361));
+
+        const months = new Set<string>();
+        records.forEach((record, index) => {
+            if (record.J361) {
+                // Extract month/year from date (assuming format like "2025-09-01" or similar)
+                try {
+                    const date = new Date(record.J361);
+                    if (!isNaN(date.getTime())) {
+                        const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                        months.add(monthYear);
+                        if (index < 3) console.log('Parsed date:', record.J361, '->', monthYear);
+                    } else {
+                        // If not a valid date, just use the value as-is
+                        months.add(record.J361);
+                        if (index < 3) console.log('Using raw value:', record.J361);
+                    }
+                } catch {
+                    // If date parsing fails, try to extract month from string
+                    months.add(record.J361);
+                    if (index < 3) console.log('Catch: Using raw value:', record.J361);
+                }
+            }
+        });
+
+        const monthArray = Array.from(months).sort();
+        console.log('Available months:', monthArray);
+        return monthArray;
+    }, [records]);
+
+    // Set default month if available
+    React.useEffect(() => {
+        if (availableMonths.length > 0 && !availableMonths.includes(selectedDailyMonth)) {
+            setSelectedDailyMonth(availableMonths[0]);
+        }
+    }, [availableMonths]);
+
+    // Prepare daily operations data from records (filtered by selected month)
+    const dailyOperationsData = React.useMemo(() => {
+        console.log('Filtering data for month:', selectedDailyMonth);
+
+        const filtered = records.filter(record => {
+            if (!record.J361 || !selectedDailyMonth) return true;
+            try {
+                const date = new Date(record.J361);
+                if (!isNaN(date.getTime())) {
+                    const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                    return recordMonth === selectedDailyMonth;
+                }
+            } catch {
+                return record.J361.includes(selectedDailyMonth);
+            }
+            return true;
+        });
+
+        console.log('Filtered records:', filtered.length, 'out of', records.length);
+
+        return filtered.map(record => {
+            const inlet = record['Total Inlet Sewage Received from (MB+Tnk) -m³'] || 0;
+            const output = record['Total Treated Water Produced - m³'] || 0;
+            const efficiency = inlet > 0 ? (output / inlet) * 100 : 0;
+
+            return {
+                date: record.J361 || 'N/A',
+                inlet: Math.round(inlet),
+                tseOutput: Math.round(output),
+                efficiency,
+                tankerTrips: record['Number of Tankers Discharged:'] || 0,
+                income: (record['Income from Tankers (OMR)'] || 0).toFixed(2),
+                savings: (record['Saving from TSE (OMR)'] || 0).toFixed(2),
+                totalImpact: (record['Total Saving & Income (OMR)'] || 0).toFixed(2),
+            };
+        });
+    }, [records, selectedDailyMonth]);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading STP Plant data...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <Card className="!p-6 max-w-md">
+                    <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                        <AlertCircle size={24} />
+                        <div>
+                            <h3 className="font-bold text-lg">Error Loading Data</h3>
+                            <p className="text-sm mt-1">{error}</p>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <Card className="!p-4">
@@ -117,7 +209,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="text-xl font-bold">Monthly Water Treatment Volumes (m³)</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sewage inlet vs TSE output comparison</p>
                     <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={waterVolumesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <AreaChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="inletGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#82ca9d" stopOpacity={0.6}/><stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/></linearGradient>
                                 <linearGradient id="outputGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ffc658" stopOpacity={0.6}/><stop offset="95%" stopColor="#ffc658" stopOpacity={0}/></linearGradient>
@@ -135,7 +227,7 @@ const Dashboard: React.FC = () => {
                 <Card>
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><DollarSign size={20} className="text-green-500"/> Monthly Economic Impact (OMR)</h3>
                      <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={economicImpactData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <BarChart data={monthlyData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} vertical={false}/>
                             <XAxis dataKey="name" stroke={tickColor} tick={{ fontSize: 12 }} />
                             <YAxis stroke={tickColor} tickFormatter={(v) => `${v/1000}k`} />
@@ -148,7 +240,7 @@ const Dashboard: React.FC = () => {
                 <Card>
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Truck size={20} className="text-orange-500"/> Monthly Tanker Operations</h3>
                      <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={tankerOperationsData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <LineChart data={monthlyData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
                             <XAxis dataKey="name" stroke={tickColor} tick={{ fontSize: 12 }} />
                             <YAxis stroke={tickColor} />
@@ -169,15 +261,22 @@ const Dashboard: React.FC = () => {
                         <p className="text-sm text-gray-500 dark:text-gray-400">Detailed daily STP operation records</p>
                     </div>
                     <div className="relative">
-                        <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1 text-right">Select Month for Daily View</label>
-                        <select 
-                            value={selectedDailyMonth}
-                            onChange={(e) => setSelectedDailyMonth(e.target.value)}
-                            className="appearance-none w-48 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
-                            <option>September 2025</option>
-                            <option>August 2025</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 absolute right-3 bottom-2.5 pointer-events-none" />
+                        <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1">Select Month for Daily View</label>
+                        <div className="relative">
+                            <select
+                                value={selectedDailyMonth}
+                                onChange={(e) => setSelectedDailyMonth(e.target.value)}
+                                className="appearance-none w-full min-w-[200px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer text-sm">
+                                {availableMonths.length > 0 ? (
+                                    availableMonths.map(month => (
+                                        <option key={month} value={month}>{month}</option>
+                                    ))
+                                ) : (
+                                    <option>All Records</option>
+                                )}
+                            </select>
+                            <ChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400" />
+                        </div>
                     </div>
                 </div>
                 <div className="overflow-x-auto">
