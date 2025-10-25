@@ -2,12 +2,14 @@
  * Water Meter Hierarchy Service
  *
  * This service calculates water distribution metrics based on a hierarchical meter structure:
- * L1 (Main Source) → L2 (Zone Distribution) → L3 (Building Bulks/Villas) → L4 (Apartments)
+ * L1 (Main Source) → L2 (Zone Distribution + DC) → L3 (Villas + Building Bulks)
  *
  * Implements calculations for:
- * - A1, A2, A3 metrics
+ * - A1 = L1 (Main Source)
+ * - A2 = L2 + DC (Zone Distribution)
+ * - A3 = L3 (All 146 meters: 125 Villas + 21 Building Bulks)
  * - System efficiency
- * - Stage losses (Stage 1, Stage 2, Stage 3)
+ * - Stage losses (Stage 1: A1-A2, Stage 2: A2-A3)
  */
 
 import { supabase } from './supabase';
@@ -23,50 +25,48 @@ const MONTHLY_COLUMNS = [
 
 /**
  * Meter type classifications for hierarchical levels
+ * L1 = Main Source
+ * L2 = Zone Distribution
+ * L3 = Individual Properties (125 Villas + 21 Building Bulks = 146 total)
+ * DC = Direct Connections (counted in A2)
  */
 export const METER_TYPES = {
   L1_MAIN_BULK: ['Main', 'Main_Bulk', 'L1', 'NAMA'],
   L2_ZONE_BULK: ['Zone_Bulk', 'Zone Bulk', 'L2', 'Zone'],
-  L3_VILLA: ['Villa', 'L3_Villa'],
-  L3_BUILDING_BULK: ['Building_Bulk', 'Building Bulk', 'L3_Building'],
-  L4_APARTMENT: ['Apartment', 'L4', 'Unit'],
-  L4_COMMON_AREA: ['Common_Area', 'Common Area', 'Common'],
+  L3_VILLA: ['Villa', 'L3_Villa', 'L3'],
+  L3_BUILDING_BULK: ['Building_Bulk', 'Building Bulk', 'L3_Building', 'Building'],
   DIRECT_CONNECTION: ['Direct_Connection', 'Direct Connection', 'DC', 'Direct']
 };
 
 /**
  * KPI Metrics Interface
+ * Simplified structure: A1 (L1) → A2 (L2+DC) → A3 (L3)
  */
 export interface WaterKPIMetrics {
   // Main metrics
-  A1_MainSource: number;           // Total water input from main bulk meter
-  A2_ZoneDistribution: number;     // L2 Zone Bulks + Direct Connections
-  A3_Individual: number;           // L3 Villas + L4 + Direct Connections
-  A3_Bulk: number;                 // L3 (All) + Direct Connections
+  A1_MainSource: number;           // L1: Total water input from main bulk meter
+  A2_ZoneDistribution: number;     // L2 + DC: Zone Bulks + Direct Connections
+  A3_Individual: number;           // L3: All individual properties (146 meters: 125 Villas + 21 Building Bulks)
 
   // Efficiency
-  systemEfficiency: number;        // (A3_Individual / A1) * 100
+  systemEfficiency: number;        // (A3 / A1) * 100
 
   // Losses
   stage1Loss: number;              // A1 - A2 (Main line losses)
   stage1LossPercentage: number;
-  stage2Loss: number;              // A2 - A3_Individual (Network losses)
+  stage2Loss: number;              // A2 - A3 (Distribution network losses)
   stage2LossPercentage: number;
-  stage3Loss: number;              // A3_Bulk - A3_Individual (Building losses)
-  stage3LossPercentage: number;
   totalSystemLoss: number;         // Stage1 + Stage2
   totalSystemLossPercentage: number;
 
   // Meter counts
   meterCounts: {
-    L1: number;
-    L2: number;
-    L3_Villas: number;
-    L3_BuildingBulks: number;
-    L4_Apartments: number;
-    L4_CommonAreas: number;
-    DirectConnections: number;
-    total: number;
+    L1: number;                    // Main bulk meter (should be 1)
+    L2: number;                    // Zone bulk meters
+    L3_Villas: number;             // Villa meters (target: 125)
+    L3_BuildingBulks: number;      // Building bulk meters (target: 21)
+    DirectConnections: number;     // Direct connections
+    total: number;                 // Total meters
   };
 }
 
@@ -100,15 +100,16 @@ const matchesMeterType = (meterType: string | null, categories: readonly string[
 
 /**
  * Classify a meter into hierarchical levels
+ * Simplified: L1 (Main) → L2 (Zones) → L3 (Properties) + DC (Direct Connections)
  */
 export const classifyMeter = (record: WaterMonthlyRecord): {
-  level: 'L1' | 'L2' | 'L3' | 'L4' | 'DC' | 'UNKNOWN';
+  level: 'L1' | 'L2' | 'L3' | 'DC' | 'UNKNOWN';
   subType: string;
 } => {
   const meterType = record.Type;
   const meterLabel = record['Meter Label'];
 
-  // L1 - Main Source
+  // L1 - Main Source (NAMA bulk meter)
   if (matchesMeterType(meterType, METER_TYPES.L1_MAIN_BULK) ||
       meterLabel?.includes('NAMA') ||
       meterLabel?.includes('C43659')) {
@@ -120,27 +121,17 @@ export const classifyMeter = (record: WaterMonthlyRecord): {
     return { level: 'L2', subType: 'Zone_Bulk' };
   }
 
-  // Direct Connections
+  // Direct Connections (counted in A2)
   if (matchesMeterType(meterType, METER_TYPES.DIRECT_CONNECTION)) {
     return { level: 'DC', subType: 'Direct_Connection' };
   }
 
-  // L4 - Apartments
-  if (matchesMeterType(meterType, METER_TYPES.L4_APARTMENT)) {
-    return { level: 'L4', subType: 'Apartment' };
-  }
-
-  // L4 - Common Areas
-  if (matchesMeterType(meterType, METER_TYPES.L4_COMMON_AREA)) {
-    return { level: 'L4', subType: 'Common_Area' };
-  }
-
-  // L3 - Villas
+  // L3 - Villas (125 meters)
   if (matchesMeterType(meterType, METER_TYPES.L3_VILLA)) {
     return { level: 'L3', subType: 'Villa' };
   }
 
-  // L3 - Building Bulks
+  // L3 - Building Bulks (21 meters)
   if (matchesMeterType(meterType, METER_TYPES.L3_BUILDING_BULK)) {
     return { level: 'L3', subType: 'Building_Bulk' };
   }
@@ -177,10 +168,7 @@ export const calculateWaterKPIs = async (): Promise<{
     let A1 = 0;  // L1 Main Source
     let L2_Total = 0;  // L2 Zone Bulks
     let DC_Total = 0;  // Direct Connections
-    let L3_Villas = 0;
-    let L3_BuildingBulks = 0;
-    let L3_Total = 0;  // All L3
-    let L4_Total = 0;  // All L4
+    let L3_Total = 0;  // All L3 (Villas + Building Bulks)
 
     // Meter counts
     const counts = {
@@ -188,8 +176,6 @@ export const calculateWaterKPIs = async (): Promise<{
       L2: 0,
       L3_Villas: 0,
       L3_BuildingBulks: 0,
-      L4_Apartments: 0,
-      L4_CommonAreas: 0,
       DirectConnections: 0,
       Unknown: 0
     };
@@ -213,20 +199,9 @@ export const calculateWaterKPIs = async (): Promise<{
         case 'L3':
           L3_Total += total;
           if (subType === 'Villa') {
-            L3_Villas += total;
             counts.L3_Villas++;
           } else if (subType === 'Building_Bulk') {
-            L3_BuildingBulks += total;
             counts.L3_BuildingBulks++;
-          }
-          break;
-
-        case 'L4':
-          L4_Total += total;
-          if (subType === 'Apartment') {
-            counts.L4_Apartments++;
-          } else if (subType === 'Common_Area') {
-            counts.L4_CommonAreas++;
           }
           break;
 
@@ -241,24 +216,26 @@ export const calculateWaterKPIs = async (): Promise<{
       }
     });
 
-    // Calculate KPIs according to formulas
+    // Calculate KPIs according to simplified formulas
+    // A1 = L1 (Main Source)
+    // A2 = L2 + DC (Zone Distribution + Direct Connections)
+    // A3 = L3 (All 146 individual properties: 125 Villas + 21 Building Bulks)
     const A2_ZoneDistribution = L2_Total + DC_Total;
-    const A3_Individual = L3_Villas + L4_Total + DC_Total;
-    const A3_Bulk = L3_Total + DC_Total;
+    const A3_Individual = L3_Total;  // Simplified: A3 = L3 only
 
-    // System Efficiency
+    // System Efficiency: (A3 / A1) * 100
     const systemEfficiency = A1 > 0 ? (A3_Individual / A1) * 100 : 0;
 
     // Losses
+    // Stage 1 Loss: A1 - A2 (Main line losses before zone distribution)
     const stage1Loss = A1 - A2_ZoneDistribution;
     const stage1LossPercentage = A1 > 0 ? (stage1Loss / A1) * 100 : 0;
 
+    // Stage 2 Loss: A2 - A3 (Distribution network losses from zones to properties)
     const stage2Loss = A2_ZoneDistribution - A3_Individual;
     const stage2LossPercentage = A2_ZoneDistribution > 0 ? (stage2Loss / A2_ZoneDistribution) * 100 : 0;
 
-    const stage3Loss = A3_Bulk - A3_Individual;
-    const stage3LossPercentage = A3_Bulk > 0 ? (stage3Loss / A3_Bulk) * 100 : 0;
-
+    // Total System Loss: Stage 1 + Stage 2
     const totalSystemLoss = stage1Loss + stage2Loss;
     const totalSystemLossPercentage = A1 > 0 ? (totalSystemLoss / A1) * 100 : 0;
 
@@ -266,14 +243,11 @@ export const calculateWaterKPIs = async (): Promise<{
       A1_MainSource: A1,
       A2_ZoneDistribution: A2_ZoneDistribution,
       A3_Individual: A3_Individual,
-      A3_Bulk: A3_Bulk,
       systemEfficiency,
       stage1Loss,
       stage1LossPercentage,
       stage2Loss,
       stage2LossPercentage,
-      stage3Loss,
-      stage3LossPercentage,
       totalSystemLoss,
       totalSystemLossPercentage,
       meterCounts: {
@@ -281,8 +255,6 @@ export const calculateWaterKPIs = async (): Promise<{
         L2: counts.L2,
         L3_Villas: counts.L3_Villas,
         L3_BuildingBulks: counts.L3_BuildingBulks,
-        L4_Apartments: counts.L4_Apartments,
-        L4_CommonAreas: counts.L4_CommonAreas,
         DirectConnections: counts.DirectConnections,
         total: records.length
       }
@@ -295,8 +267,12 @@ export const calculateWaterKPIs = async (): Promise<{
       console.warn(`⚠️ ${counts.Unknown} meters with unknown type`);
     }
 
-    if (stage3Loss < 0) {
-      console.warn('🚨 Stage 3 Loss is NEGATIVE - possible meter calibration or timing issues!');
+    if (counts.L3_Villas !== 125) {
+      console.warn(`⚠️ Expected 125 Villa meters, found ${counts.L3_Villas}`);
+    }
+
+    if (counts.L3_BuildingBulks !== 21) {
+      console.warn(`⚠️ Expected 21 Building Bulk meters, found ${counts.L3_BuildingBulks}`);
     }
 
     return { data: metrics, error: null };
@@ -309,6 +285,7 @@ export const calculateWaterKPIs = async (): Promise<{
 
 /**
  * Get consumption breakdown by hierarchical level
+ * Simplified structure: L1 → L2+DC → L3
  */
 export const getConsumptionByLevel = async (): Promise<{
   data: LevelBreakdown[] | null;
@@ -329,21 +306,15 @@ export const getConsumptionByLevel = async (): Promise<{
         percentage: 100
       },
       {
-        level: 'L2 - Zone Distribution',
+        level: 'L2 - Zone Distribution + DC',
         consumption: metrics.A2_ZoneDistribution,
         meterCount: metrics.meterCounts.L2 + metrics.meterCounts.DirectConnections,
         percentage: metrics.A1_MainSource > 0 ? (metrics.A2_ZoneDistribution / metrics.A1_MainSource) * 100 : 0
       },
       {
-        level: 'L3 - Villas & Building Bulks',
-        consumption: metrics.A3_Bulk,
-        meterCount: metrics.meterCounts.L3_Villas + metrics.meterCounts.L3_BuildingBulks,
-        percentage: metrics.A1_MainSource > 0 ? (metrics.A3_Bulk / metrics.A1_MainSource) * 100 : 0
-      },
-      {
-        level: 'L4 - Individual Apartments',
+        level: 'L3 - Individual Properties (146 meters)',
         consumption: metrics.A3_Individual,
-        meterCount: metrics.meterCounts.L4_Apartments + metrics.meterCounts.L4_CommonAreas,
+        meterCount: metrics.meterCounts.L3_Villas + metrics.meterCounts.L3_BuildingBulks,
         percentage: metrics.A1_MainSource > 0 ? (metrics.A3_Individual / metrics.A1_MainSource) * 100 : 0
       }
     ];

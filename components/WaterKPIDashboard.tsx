@@ -220,7 +220,7 @@ export const WaterKPIDashboard: React.FC = () => {
         <KPICard
           title="A1 - Main Source"
           value={metrics.A1_MainSource}
-          subtitle="Total system input"
+          subtitle="L1: Total system input"
           color="blue"
           icon={
             <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -232,7 +232,7 @@ export const WaterKPIDashboard: React.FC = () => {
         <KPICard
           title="A2 - Zone Distribution"
           value={metrics.A2_ZoneDistribution}
-          subtitle="L2 Zones + Direct Connections"
+          subtitle="L2 + DC: Zones + Direct Connections"
           color="green"
           trend={{
             value: metrics.A1_MainSource > 0 ? (metrics.A2_ZoneDistribution / metrics.A1_MainSource) * 100 : 0,
@@ -247,9 +247,9 @@ export const WaterKPIDashboard: React.FC = () => {
         />
 
         <KPICard
-          title="A3 - Individual"
+          title="A3 - Individual Properties"
           value={metrics.A3_Individual}
-          subtitle="L3 Villas + L4 + DC"
+          subtitle="L3: 146 meters (125 Villas + 21 Bulks)"
           color="purple"
           trend={{
             value: metrics.A1_MainSource > 0 ? (metrics.A3_Individual / metrics.A1_MainSource) * 100 : 0,
@@ -266,7 +266,7 @@ export const WaterKPIDashboard: React.FC = () => {
           title="System Efficiency"
           value={metrics.systemEfficiency}
           unit="%"
-          subtitle="A3 Individual / A1"
+          subtitle="A3 / A1 (Target: ≥85%)"
           color={getEfficiencyStatus(metrics.systemEfficiency) === 'excellent' ? 'green' :
                  getEfficiencyStatus(metrics.systemEfficiency) === 'good' ? 'yellow' :
                  getEfficiencyStatus(metrics.systemEfficiency) === 'average' ? 'orange' : 'red'}
@@ -279,8 +279,8 @@ export const WaterKPIDashboard: React.FC = () => {
         />
       </div>
 
-      {/* Row 2: Loss Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Row 2: Loss Cards (3 cards only) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <KPICard
           title="Stage 1 Loss"
           value={metrics.stage1Loss}
@@ -337,90 +337,49 @@ export const WaterKPIDashboard: React.FC = () => {
             </svg>
           }
         />
-
-        <KPICard
-          title="A3 - Bulk Level"
-          value={metrics.A3_Bulk}
-          subtitle="L3 All + DC (for Stage 3 calc)"
-          color="gray"
-          trend={{
-            value: metrics.A1_MainSource > 0 ? (metrics.A3_Bulk / metrics.A1_MainSource) * 100 : 0,
-            label: 'of A1'
-          }}
-          icon={
-            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          }
-        />
       </div>
-
-      {/* Stage 3 Loss Warning (if applicable) */}
-      {metrics.stage3Loss < 0 && (
-        <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                🚨 Stage 3 Loss Alert: {metrics.stage3Loss.toFixed(0)} m³ ({metrics.stage3LossPercentage.toFixed(1)}%)
-              </h3>
-              <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                Negative loss detected (A3 Bulk - A3 Individual). This may indicate:
-              </p>
-              <ul className="mt-2 text-sm text-red-700 dark:text-red-300 list-disc list-inside">
-                <li>Meter calibration issues</li>
-                <li>Reading timing discrepancies</li>
-                <li>Possible unmetered connections</li>
-                <li>Data entry errors</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Meter Count Summary */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Meter Distribution
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">{metrics.meterCounts.L1}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L1 Main</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p className="text-3xl font-bold text-blue-600">{metrics.meterCounts.L1}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">L1 Main Bulk</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Source</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">{metrics.meterCounts.L2}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L2 Zones</p>
+          <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+            <p className="text-3xl font-bold text-green-600">{metrics.meterCounts.L2}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">L2 Zone Bulks</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Distribution</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-purple-600">{metrics.meterCounts.L3_Villas}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L3 Villas</p>
+          <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+            <p className="text-3xl font-bold text-purple-600">{metrics.meterCounts.L3_Villas}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">L3 Villas</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Target: 125</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-purple-600">{metrics.meterCounts.L3_BuildingBulks}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L3 Buildings</p>
+          <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+            <p className="text-3xl font-bold text-purple-600">{metrics.meterCounts.L3_BuildingBulks}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">L3 Building Bulks</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Target: 21</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-indigo-600">{metrics.meterCounts.L4_Apartments}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L4 Apartments</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-indigo-600">{metrics.meterCounts.L4_CommonAreas}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">L4 Common</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-orange-600">{metrics.meterCounts.DirectConnections}</p>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Direct Conn</p>
+          <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+            <p className="text-3xl font-bold text-orange-600">{metrics.meterCounts.DirectConnections}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">Direct Connections</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Special</p>
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-center text-gray-600 dark:text-gray-400">
-            <span className="font-semibold text-gray-900 dark:text-white">{metrics.meterCounts.total}</span> Total Meters
-          </p>
+        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Total L3 Properties: <span className="font-bold text-purple-600">{metrics.meterCounts.L3_Villas + metrics.meterCounts.L3_BuildingBulks}</span> / 146 (Target)
+            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Total System Meters: <span className="font-semibold text-gray-900 dark:text-white">{metrics.meterCounts.total}</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
