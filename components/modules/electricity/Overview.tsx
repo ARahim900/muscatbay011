@@ -1,48 +1,23 @@
-import React, { ComponentType } from 'react';
+import React, { useMemo, ComponentType } from 'react';
 import Card from '../../ui/Card';
-// Fix: Import CartesianGrid to resolve 'Cannot find name 'CartesianGrid''.
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
-import { Zap, DollarSign, MapPin, TrendingUp } from 'lucide-react';
+import { Zap, DollarSign, MapPin, TrendingUp, ChevronDown } from 'lucide-react';
+import { ElectricityMeterRaw } from '../../../data/electricityFullData';
 
-// --- MOCK DATA ---
-const kpiData = [
-    { icon: Zap, title: "TOTAL CONSUMPTION", value: "1967.48 MWH", subValue: "1,967,482 kWh", color: "text-yellow-500", bgColor: "bg-yellow-100 dark:bg-yellow-900/50" },
-    { icon: DollarSign, title: "TOTAL COST", value: "49187.05 OMR", subValue: "@ 0.025 OMR/kWh", color: "text-green-500", bgColor: "bg-green-100 dark:bg-green-900/50" },
-    { icon: MapPin, title: "METER COUNT", value: "56", subValue: "type: all", color: "text-blue-500", bgColor: "bg-blue-100 dark:bg-blue-900/50" },
-    { icon: TrendingUp, title: "HIGHEST CONSUMER", value: "Beachwell", subValue: "359,762 kWh", color: "text-pink-500", bgColor: "bg-pink-100 dark:bg-pink-900/50" },
-];
-
-const monthlyConsumptionData = [
-    { name: 'Apr-24', kWh: 85000 },
-    { name: 'May-24', kWh: 120000 },
-    { name: 'Jun-24', kWh: 115000 },
-    { name: 'Jul-24', kWh: 140000 },
-    { name: 'Aug-24', kWh: 130000 },
-    { name: 'Sep-24', kWh: 125000 },
-    { name: 'Oct-24', kWh: 120000 },
-    { name: 'Nov-24', kWh: 110000 },
-    { name: 'Dec-24', kWh: 100000 },
-    { name: 'Jan-25', kWh: 95000 },
-    { name: 'Feb-25', kWh: 75000 },
-    { name: 'Mar-25', kWh: 115000 },
-    { name: 'Apr-25', kWh: 140000 },
-    { name: 'May-25', kWh: 160000 },
-    { name: 'Jun-25', kWh: 220000 },
-];
-
-const consumptionByTypeData = [
-    { name: 'FP-Landscape Lights Z3', value: 50000 },
-    { name: 'LS', value: 80000 },
-    { name: 'PS', value: 120000 },
-    { name: 'Retail', value: 200000 },
-    { name: 'Common Building', value: 350000 },
-    { name: 'D_Building', value: 480000 },
-];
+const OMR_PER_KWH = 0.025;
 const barColors = ['#8884d8', '#82ca9d', '#ffc658', '#FF8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+interface OverviewProps {
+    allData: ElectricityMeterRaw[];
+    availableMonths: string[];
+    startMonth: string;
+    endMonth: string;
+    setStartMonth: (month: string) => void;
+    setEndMonth: (month: string) => void;
+    monthsOrder: string[];
+}
 
-// --- COMPONENTS ---
 interface ElectricityKpiCardProps {
     icon: ComponentType<{ className?: string }>;
     title: string;
@@ -67,20 +42,90 @@ const ElectricityKpiCard: React.FC<ElectricityKpiCardProps> = ({ icon: Icon, tit
     </Card>
 );
 
-const Overview: React.FC = () => {
+const Overview: React.FC<OverviewProps> = ({ allData, availableMonths, startMonth, endMonth, setStartMonth, setEndMonth, monthsOrder }) => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
+
+    const { 
+        kpiData, 
+        monthlyConsumptionData, 
+        consumptionByTypeData 
+    } = useMemo(() => {
+        const startIndex = monthsOrder.indexOf(startMonth);
+        const endIndex = monthsOrder.indexOf(endMonth);
+
+        if (startIndex === -1 || endIndex === -1 || startIndex > endIndex) {
+            return { kpiData: [], monthlyConsumptionData: [], consumptionByTypeData: [] };
+        }
+
+        const selectedMonths = monthsOrder.slice(startIndex, endIndex + 1);
+        const monthSet = new Set(selectedMonths);
+
+        let totalConsumptionKwh = 0;
+        const meterConsumption: { [key: string]: number } = {};
+        const typeConsumption: { [key: string]: number } = {};
+        const monthlyTotals: { [key: string]: number } = {};
+        selectedMonths.forEach(m => monthlyTotals[m] = 0);
+
+        allData.forEach(meter => {
+            let meterTotal = 0;
+            meter.readings.forEach(reading => {
+                if (monthSet.has(reading.month)) {
+                    totalConsumptionKwh += reading.consumption;
+                    meterTotal += reading.consumption;
+                    typeConsumption[meter.type] = (typeConsumption[meter.type] || 0) + reading.consumption;
+                    monthlyTotals[reading.month] = (monthlyTotals[reading.month] || 0) + reading.consumption;
+                }
+            });
+            meterConsumption[meter.name] = meterTotal;
+        });
+
+        const highestConsumer = Object.entries(meterConsumption).reduce((max, entry) => entry[1] > max[1] ? entry : max, ["", 0]);
+
+        const calculatedKpiData = [
+            { icon: Zap, title: "TOTAL CONSUMPTION", value: `${(totalConsumptionKwh / 1000000).toFixed(2)} MWH`, subValue: `${totalConsumptionKwh.toLocaleString('en-US', {maximumFractionDigits: 0})} kWh`, color: "text-yellow-500", bgColor: "bg-yellow-100 dark:bg-yellow-900/50" },
+            { icon: DollarSign, title: "TOTAL COST", value: `${(totalConsumptionKwh * OMR_PER_KWH).toLocaleString('en-US', {maximumFractionDigits: 2})} OMR`, subValue: `@ ${OMR_PER_KWH} OMR/kWh`, color: "text-green-500", bgColor: "bg-green-100 dark:bg-green-900/50" },
+            { icon: MapPin, title: "METER COUNT", value: allData.length.toString(), subValue: "type: all", color: "text-blue-500", bgColor: "bg-blue-100 dark:bg-blue-900/50" },
+            { icon: TrendingUp, title: "HIGHEST CONSUMER", value: highestConsumer[0], subValue: `${highestConsumer[1].toLocaleString('en-US', {maximumFractionDigits: 0})} kWh`, color: "text-pink-500", bgColor: "bg-pink-100 dark:bg-pink-900/50" },
+        ];
+        
+        const calculatedMonthlyData = selectedMonths.map(month => ({
+            name: month,
+            kWh: monthlyTotals[month] || 0
+        }));
+
+        const calculatedTypeData = Object.entries(typeConsumption)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => a.value - b.value);
+
+        return { kpiData: calculatedKpiData, monthlyConsumptionData: calculatedMonthlyData, consumptionByTypeData: calculatedTypeData };
+    }, [allData, startMonth, endMonth, monthsOrder]);
+
+    const handleReset = () => {
+        setStartMonth(availableMonths[0]);
+        setEndMonth(availableMonths[availableMonths.length - 1]);
+    };
     
     return (
         <div className="space-y-6">
              <Card className="!p-4">
                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <input type="text" value="April 2024" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="relative">
+                            <select value={startMonth} onChange={(e) => setStartMonth(e.target.value)} className="w-40 appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                                {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                        </div>
                         <span className="text-gray-500">to</span>
-                        <input type="text" value="June 2025" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
+                         <div className="relative">
+                            <select value={endMonth} onChange={(e) => setEndMonth(e.target.value)} className="w-40 appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                                {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
+                        </div>
                     </div>
-                    <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
+                    <button onClick={handleReset} className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
                         Reset Range
                     </button>
                 </div>
@@ -102,10 +147,11 @@ const Overview: React.FC = () => {
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} vertical={false} />
-                            <XAxis dataKey="name" stroke={tickColor} dy={10} />
+                            <XAxis dataKey="name" stroke={tickColor} dy={10} tick={{ fontSize: 12 }} />
                             <YAxis stroke={tickColor} tickFormatter={(tick) => `${tick / 1000}k`} />
                             <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF', borderColor: isDarkMode ? '#374151' : '#E5E7EB' }} />
-                            <Area type="monotone" dataKey="kWh" stroke="#FFC107" strokeWidth={3} fill="url(#consumptionGradient)" />
+                            <Legend />
+                            <Area type="monotone" name="Consumption" dataKey="kWh" stroke="#FFC107" strokeWidth={3} fill="url(#consumptionGradient)" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </Card>
@@ -114,13 +160,15 @@ const Overview: React.FC = () => {
                     <h3 className="text-xl font-bold mb-4">Consumption by Type</h3>
                      <ResponsiveContainer width="100%" height={350}>
                         <BarChart data={consumptionByTypeData} layout="vertical" margin={{ top: 10, right: 30, left: 30, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} horizontal={false} />
                             <XAxis type="number" stroke={tickColor} tickFormatter={(tick) => `${tick / 1000}k`} />
                             <YAxis type="category" dataKey="name" stroke={tickColor} width={100} tick={{ fontSize: 12 }} />
                             <Tooltip 
                                 cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'}}
                                 contentStyle={{ backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF', borderColor: isDarkMode ? '#374151' : '#E5E7EB' }} 
                             />
-                            <Bar dataKey="value" barSize={15}>
+                            <Legend />
+                            <Bar dataKey="value" name="Consumption (kWh)" barSize={15}>
                                 {consumptionByTypeData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
                                 ))}

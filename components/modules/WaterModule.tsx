@@ -3,6 +3,7 @@ import PlaceholderModule from './PlaceholderModule';
 import ZoneAnalysis from './water/ZoneAnalysis';
 import ConsumptionByType from './water/ConsumptionByType';
 import Overview from './water/Overview';
+import Database from './water/Database';
 
 const WATER_TABS = ['Overview', 'Performance KPIs', 'Zone Analysis', 'Consumption by Type', 'Main Database'];
 
@@ -17,6 +18,8 @@ const WaterModule: React.FC = () => {
         return <ZoneAnalysis />;
       case 'Consumption by Type':
         return <ConsumptionByType />;
+      case 'Main Database':
+        return <Database />;
       default:
         return <PlaceholderModule title={`${activeTab} - Water`} />;
     }

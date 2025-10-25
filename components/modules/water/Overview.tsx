@@ -2,8 +2,7 @@ import React, { useState, type ComponentType } from 'react';
 import Card from '../../ui/Card';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
-import { Droplets, TrendingDown, Target, ChevronsRight, Users, AlertTriangle, BarChart2, TrendingUp as TrendingUpIcon, SlidersHorizontal, BarChart as BarChartIcon, Database } from 'lucide-react';
-import { WaterKPIDashboard } from '../../WaterKPIDashboard';
+import { Droplets, TrendingDown, Target, ChevronsRight, Users, AlertTriangle } from 'lucide-react';
 
 // --- MOCK DATA ---
 const kpiData = [
@@ -39,14 +38,6 @@ const waterLossData = [
     { name: 'Jul-25', 'Total Loss': 10000, 'Stage 1 Loss': 6000, 'Stage 2 Loss': 4000 },
     { name: 'Aug-25', 'Total Loss': 10000, 'Stage 1 Loss': 7000, 'Stage 2 Loss': 3000 },
     { name: 'Sep-25', 'Total Loss': 10000, 'Stage 1 Loss': 7000, 'Stage 2 Loss': 3000 },
-];
-
-const OVERVIEW_SUB_TABS = [
-    { name: 'Overview', icon: BarChart2 },
-    { name: 'Performance KPIs', icon: TrendingUpIcon },
-    { name: 'Zone Analysis', icon: SlidersHorizontal },
-    { name: 'Consumption by Type', icon: BarChartIcon },
-    { name: 'Main Database', icon: Database },
 ];
 
 // --- COMPONENTS ---
@@ -105,17 +96,6 @@ const Overview: React.FC = () => {
                 </div>
             </Card>
 
-            <Card className="!p-2">
-                <div className="flex flex-wrap items-center gap-2">
-                    {OVERVIEW_SUB_TABS.map((tab, index) => (
-                        <button key={tab.name} className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${index === 0 ? 'bg-gray-200 dark:bg-gray-700' : 'hover:bg-gray-100 dark:hover:bg-gray-700/50'}`}>
-                            <tab.icon className="w-4 h-4" />
-                            <span>{tab.name}</span>
-                        </button>
-                    ))}
-                </div>
-            </Card>
-
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -136,8 +116,9 @@ const Overview: React.FC = () => {
                 </div>
             </div>
 
-            {/* Water KPI Dashboard - Real-time data from Supabase */}
-            <WaterKPIDashboard />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {kpiData.map(kpi => <OverviewKpiCard key={kpi.title} {...kpi} />)}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>

@@ -1,20 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Overview from './electricity/Overview';
 import AnalysisByType from './electricity/AnalysisByType';
 import Database from './electricity/Database';
 import PlaceholderModule from './PlaceholderModule';
+import { electricityFullData, monthsOrder } from '../../data/electricityFullData';
 
 const ELECTRICITY_TABS = ['Overview', 'Analysis by Type', 'Database'];
 
 const ElectricityModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
+  
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    electricityFullData.forEach(meter => {
+      meter.readings.forEach(reading => {
+        months.add(reading.month);
+      });
+    });
+    return Array.from(months).sort((a, b) => monthsOrder.indexOf(a) - monthsOrder.indexOf(b));
+  }, []);
+
+  const [startMonth, setStartMonth] = useState(availableMonths[0]);
+  const [endMonth, setEndMonth] = useState(availableMonths[availableMonths.length - 1]);
 
   const renderContent = () => {
+    const props = {
+      allData: electricityFullData,
+      availableMonths,
+      startMonth,
+      endMonth,
+      setStartMonth,
+      setEndMonth,
+      monthsOrder
+    };
+
     switch (activeTab) {
       case 'Overview':
-        return <Overview />;
+        return <Overview {...props} />;
       case 'Analysis by Type':
-        return <AnalysisByType />;
+        return <AnalysisByType {...props} />;
       case 'Database':
         return <Database />;
       default:

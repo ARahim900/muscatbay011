@@ -77,6 +77,7 @@ const EfficiencyPill: React.FC<{ value: number }> = ({ value }) => {
 const Dashboard: React.FC = () => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
+    const [selectedDailyMonth, setSelectedDailyMonth] = useState('September 2025');
     
     return (
         <div className="space-y-6">
@@ -111,10 +112,7 @@ const Dashboard: React.FC = () => {
                 {kpiData.map(kpi => <StpKpiCard key={kpi.title} {...kpi} />)}
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
-                 <button className="absolute -top-3 -right-3 z-10 w-12 h-12 bg-primary rounded-full text-white flex items-center justify-center shadow-lg hover:bg-primary/90 transition-all">
-                    <Plus size={24} />
-                </button>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="lg:col-span-2">
                     <h3 className="text-xl font-bold">Monthly Water Treatment Volumes (m³)</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sewage inlet vs TSE output comparison</p>
@@ -172,7 +170,10 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="relative">
                         <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1 text-right">Select Month for Daily View</label>
-                        <select defaultValue="September 2025" className="appearance-none w-48 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                        <select 
+                            value={selectedDailyMonth}
+                            onChange={(e) => setSelectedDailyMonth(e.target.value)}
+                            className="appearance-none w-48 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
                             <option>September 2025</option>
                             <option>August 2025</option>
                         </select>

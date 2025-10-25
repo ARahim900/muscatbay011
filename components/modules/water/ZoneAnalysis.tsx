@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Card from '../../ui/Card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
@@ -87,14 +87,45 @@ const SimpleDoughnutCard: React.FC<SimpleDoughnutCardProps> = ({ title, value, p
 const ZoneAnalysis: React.FC = () => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
+
+    const [selectedMonth, setSelectedMonth] = useState('Sep-25');
+    const [selectedZone, setSelectedZone] = useState('Zone 01 (FM)');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('All Status');
+    const [typeFilter, setTypeFilter] = useState('All Types');
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 10;
-    const totalPages = Math.ceil(individualMetersData.length / rowsPerPage);
-    
-    const paginatedData = individualMetersData.slice(
+
+    const filteredData = useMemo(() => {
+        return individualMetersData.filter(meter => {
+            const statusMatch = statusFilter === 'All Status' || meter.status === statusFilter;
+            const typeMatch = typeFilter === 'All Types' || meter.type === typeFilter;
+            const searchMatch = searchTerm === '' ||
+                meter.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                meter.account.toLowerCase().includes(searchTerm.toLowerCase());
+            return statusMatch && typeMatch && searchMatch;
+        });
+    }, [statusFilter, typeFilter, searchTerm]);
+
+    const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filteredData]);
+
+    const paginatedData = filteredData.slice(
         (currentPage - 1) * rowsPerPage,
         currentPage * rowsPerPage
     );
+
+    const handleReset = () => {
+        setSelectedMonth('Sep-25');
+        setSelectedZone('Zone 01 (FM)');
+        setStatusFilter('All Status');
+        setTypeFilter('All Types');
+        setSearchTerm('');
+    };
+
 
     return (
         <div className="space-y-8">
@@ -103,7 +134,10 @@ const ZoneAnalysis: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-4">
                         <div className="relative">
                             <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1">Select Month</label>
-                            <select defaultValue="Sep-25" className="appearance-none w-40 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <select 
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(e.target.value)}
+                                className="appearance-none w-40 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
                                 <option>Sep-25</option>
                                 <option>Aug-25</option>
                                 <option>Jul-25</option>
@@ -112,7 +146,10 @@ const ZoneAnalysis: React.FC = () => {
                         </div>
                          <div className="relative">
                             <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1">Filter by Zone</label>
-                            <select defaultValue="Zone 01 (FM)" className="appearance-none w-40 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <select 
+                                value={selectedZone}
+                                onChange={(e) => setSelectedZone(e.target.value)}
+                                className="appearance-none w-40 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
                                 <option>Zone 01 (FM)</option>
                                 <option>Zone 02 (RM)</option>
                             </select>
@@ -120,7 +157,9 @@ const ZoneAnalysis: React.FC = () => {
                         </div>
                     </div>
                     <div className="self-end">
-                        <button className="flex items-center gap-2 bg-accent text-white py-2 px-4 rounded-md hover:bg-accent/90 transition-colors">
+                        <button 
+                            onClick={handleReset}
+                            className="flex items-center gap-2 bg-accent text-white py-2 px-4 rounded-md hover:bg-accent/90 transition-colors">
                             <RefreshCw className="w-4 h-4" />
                             Reset Filters
                         </button>
@@ -129,12 +168,12 @@ const ZoneAnalysis: React.FC = () => {
             </Card>
 
             <div className="text-center">
-                <h2 className="text-2xl font-bold">Zone 01 (FM) Analysis for Sep-25</h2>
+                <h2 className="text-2xl font-bold">{selectedZone} Analysis for {selectedMonth}</h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Zone Bulk = L2 only • L3/L4 Total = L3 + L4 (included for this zone) • Difference = L2 – (L3 + L4)</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <SimpleDoughnutCard title="Zone Bulk Meter Total" value={doughnutData.bulk.value} percentage={doughnutData.bulk.percentage} color="#3b82f6" darkColor="#60a5fa" footer="Total input for Zone 01 (FM) • Sep-25" />
+                <SimpleDoughnutCard title="Zone Bulk Meter Total" value={doughnutData.bulk.value} percentage={doughnutData.bulk.percentage} color="#3b82f6" darkColor="#60a5fa" footer={`Total input for ${selectedZone} • ${selectedMonth}`} />
                 <SimpleDoughnutCard title="Individual Meters Sum Total" value={doughnutData.individual.value} percentage={doughnutData.individual.percentage} color="#00D2B3" darkColor="#00D2B3" footer="Recorded by individual meters (100.0%)" />
                 <SimpleDoughnutCard title="Water Loss Distribution" value={doughnutData.loss.value} percentage={doughnutData.loss.percentage} color="#ef4444" darkColor="#f87171" footer="Unaccounted for water" />
             </div>
@@ -167,17 +206,25 @@ const ZoneAnalysis: React.FC = () => {
                     <Plus size={24} />
                 </button>
                 <div className="mb-4">
-                    <h3 className="text-xl font-bold">Individual Meters - Zone Zone 01 (FM)</h3>
+                    <h3 className="text-xl font-bold">Individual Meters - {selectedZone}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">All individual meters (L3 Villas + L3 Building Bulk) in this zone</p>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
                     <div className="relative flex-grow max-w-sm">
                         <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input type="text" placeholder="Search meters or accounts..." className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-accent" />
+                        <input 
+                            type="text" 
+                            placeholder="Search meters or accounts..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-accent" />
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="relative">
-                             <select className="appearance-none w-32 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                             <select 
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="appearance-none w-32 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
                                 <option>All Status</option>
                                 <option>Active</option>
                                 <option>Inactive</option>
@@ -185,7 +232,10 @@ const ZoneAnalysis: React.FC = () => {
                             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
                          <div className="relative">
-                             <select className="appearance-none w-32 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                             <select 
+                                value={typeFilter}
+                                onChange={(e) => setTypeFilter(e.target.value)}
+                                className="appearance-none w-32 bg-gray-100 dark:bg-gray-700 border border-transparent rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
                                 <option>All Types</option>
                                 <option>Building Bulk</option>
                                 <option>Villa</option>
@@ -234,7 +284,7 @@ const ZoneAnalysis: React.FC = () => {
                 </div>
 
                  <div className="flex flex-wrap items-center justify-between pt-4 text-sm text-gray-500 dark:text-gray-400">
-                    <p>Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, individualMetersData.length)} of {individualMetersData.length} results</p>
+                    <p>Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} results</p>
                     <div className="flex items-center gap-2 mt-2 sm:mt-0">
                         <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50">Previous</button>
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
