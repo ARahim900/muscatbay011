@@ -3,6 +3,7 @@ import Card from '../../ui/Card';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
 import { Droplets, TrendingDown, Target, ChevronsRight, Users, AlertTriangle, BarChart2, TrendingUp as TrendingUpIcon, SlidersHorizontal, BarChart as BarChartIcon, Database } from 'lucide-react';
+import { WaterKPIDashboard } from '../../WaterKPIDashboard';
 
 // --- MOCK DATA ---
 const kpiData = [
@@ -135,9 +136,8 @@ const Overview: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {kpiData.map(kpi => <OverviewKpiCard key={kpi.title} {...kpi} />)}
-            </div>
+            {/* Water KPI Dashboard - Real-time data from Supabase */}
+            <WaterKPIDashboard />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
