@@ -18,6 +18,19 @@ All notable changes to this project will be documented in this file.
 - Updated to latest versions: @supabase/supabase-js ^2.76.1, recharts ^3.3.0
 - Added supabase CLI tool to devDependencies
 
+## [2025-01-25] - Supabase Connection Fixes
+
+### Fixed ✅
+- **Table Name Consistency**: Fixed inconsistent table names in waterMonthlyService.ts
+  - Standardized all queries to use 'Water_System' (with underscore) instead of mixing 'Water System' and 'Water_System'
+  - Fixed table name issues in: fetchWaterMonthlyByType, searchWaterMonthlyByMeterLabel, getUniqueZones, getUniqueTypes
+  - This resolves database query failures due to incorrect table name references
+
+### Changes Made
+- Updated lib/waterMonthlyService.ts to use consistent 'Water_System' table name
+- All functions now correctly reference the same table
+- This should fix Supabase connection issues in the Water module
+
 ## [2025-01-25] - Project Updates
 
 ### Updated 📦

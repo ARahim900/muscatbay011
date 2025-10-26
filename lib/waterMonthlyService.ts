@@ -69,7 +69,7 @@ export async function fetchWaterMonthlyByZone(zone: string): Promise<WaterMonthl
 export async function fetchWaterMonthlyByType(type: string): Promise<WaterMonthlyRecord[]> {
   try {
     const { data, error } = await supabase
-      .from('Water System')
+      .from('Water_System')
       .select('*')
       .eq('Type', type)
       .order('Meter Label', { ascending: true });
@@ -92,7 +92,7 @@ export async function fetchWaterMonthlyByType(type: string): Promise<WaterMonthl
 export async function searchWaterMonthlyByMeterLabel(searchTerm: string): Promise<WaterMonthlyRecord[]> {
   try {
     const { data, error } = await supabase
-      .from('Water System')
+      .from('Water_System')
       .select('*')
       .ilike('Meter Label', `%${searchTerm}%`)
       .order('Meter Label', { ascending: true });
@@ -115,7 +115,7 @@ export async function searchWaterMonthlyByMeterLabel(searchTerm: string): Promis
 export async function getUniqueZones(): Promise<string[]> {
   try {
     const { data, error } = await supabase
-      .from('Water System')
+      .from('Water_System')
       .select('Zone')
       .not('Zone', 'is', null);
 
@@ -138,7 +138,7 @@ export async function getUniqueZones(): Promise<string[]> {
 export async function getUniqueTypes(): Promise<string[]> {
   try {
     const { data, error } = await supabase
-      .from('Water System')
+      .from('Water_System')
       .select('Type')
       .not('Type', 'is', null);
 
