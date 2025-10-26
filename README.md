@@ -4,6 +4,8 @@
 
 # Run and deploy your AI Studio app
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ARahim900/muscatbay011?utm_source=oss&utm_medium=github&utm_campaign=ARahim900%2Fmuscatbay011&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/1ADRrgxhdtrEqXSOBTY9yD8NwmL9JBH7d

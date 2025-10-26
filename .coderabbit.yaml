@@ -1,0 +1,102 @@
+# CodeRabbit Configuration for Muscat Bay Utilities Dashboard
+# Docs: https://docs.coderabbit.ai/config-file
+
+# Review behavior settings
+review:
+  # Auto-request reviewers based on code ownership
+  request_review: true
+  
+  # Comment on pull requests
+  comment_review: true
+  
+  # Comment on draft pull requests
+  draft_review: true
+  
+  # Review file patterns (include/exclude)
+  paths:
+    include:
+      - "components/**"
+      - "lib/**"
+      - "hooks/**"
+      - "context/**"
+      - "*.tsx"
+      - "*.ts"
+      - "*.js"
+      - "*.jsx"
+    exclude:
+      - "node_modules/**"
+      - "dist/**"
+      - "*.csv"
+      - "*.sql"
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+
+# Language settings
+language:
+  - typescript
+  - javascript
+  - react
+  - jsx
+  - tsx
+
+# Chat settings
+chat:
+  # Automatically respond to review comments
+  auto_reply: true
+  
+  # Include history
+  include_history: true
+
+# Code review settings
+code_review:
+  # Summarize code changes
+  summarize_code_changes: true
+  
+  # Provide general feedback
+  provide_general_feedback: true
+  
+  # Enable path filters
+  path_filters:
+    enabled: true
+
+# Commit message suggestions
+commit_message:
+  # Suggest commit messages
+  suggest: true
+  
+  # Use conventional commits
+  conventional: true
+
+# PR description enhancement
+pr_description:
+  # Enhance PR descriptions
+  enhance: true
+  
+  # Use code-suggested descriptions
+  use_code_suggestions: true
+
+# Cost and model settings
+model:
+  # Use latest model
+  latest: true
+  
+  # Temperature for reviews
+  temperature: 0.2
+
+# Labels and attributes
+labels:
+  # Add labels based on changes
+  auto_generate: true
+  
+# Ignore patterns
+ignore:
+  # Files/directories to ignore
+  paths:
+    - "node_modules"
+    - "dist"
+    - ".git"
+    - "*.csv"
+    - "*.sql"
+    - "RLS-FIX-*.sql"
+    - "test-*.ts"
+
