@@ -2,10 +2,41 @@ import React, { useState, type ComponentType } from 'react';
 import Card from '../../ui/Card';
 import { AreaChart, Area, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
-import { Droplets, Recycle, Truck, DollarSign, TrendingUp, BarChart2, Percent, Droplets as DropletsIcon, Plus, ChevronDown, AlertCircle } from 'lucide-react';
-import { useStpPlant } from '../../../hooks/useStpPlant';
-import type { StpPlantRecord } from '../../../lib/stpPlantService';
-import { calculateStpStatistics } from '../../../lib/stpPlantService';
+import { Droplets, Recycle, Truck, DollarSign, TrendingUp, BarChart2, Percent, Droplets as DropletsIcon, Plus, ChevronDown } from 'lucide-react';
+
+// --- MOCK DATA ---
+const kpiData = [
+  { icon: Droplets, title: 'INLET SEWAGE', value: '248,371 m³', subtitle: 'Range: Jul-24 - Sep-25', iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+  { icon: Recycle, title: 'TSE FOR IRRIGATION', value: '237,514 m³', subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+  { icon: Truck, title: 'TANKER TRIPS', value: '4,292 trips', subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
+  { icon: DollarSign, title: 'GENERATED INCOME', value: '19314.00 OMR', subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+  { icon: TrendingUp, title: 'WATER SAVINGS', value: '313503.04 OMR', subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+  { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: '332817.04 OMR', subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
+  { icon: Percent, title: 'TREATMENT EFFICIENCY', value: '95.6%', subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
+  { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: '543 m³', subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
+];
+
+const waterVolumesData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), inlet: 15000 + Math.random() * 2000, output: 14000 + Math.random() * 2000 }));
+const economicImpactData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), impact: 15000 + Math.random() * 12000 }));
+const tankerOperationsData = Array.from({ length: 15 }, (_, i) => ({ name: new Date(2024, 6 + i, 1).toLocaleString('default', { month: 'short', year: '2-digit' }).replace(' ', '-'), trips: 150 + Math.random() * 300 }));
+
+const dailyOperationsData = Array.from({ length: 30 }, (_, i) => {
+    const inlet = 300 + Math.random() * 400;
+    const output = inlet * (0.8 + Math.random() * 0.25);
+    const trips = Math.floor(Math.random() * 20);
+    const income = trips * 4.5;
+    const savings = output * 1.32;
+    return {
+        date: `0${i + 1}/09/2025`.slice(-10),
+        inlet: Math.round(inlet),
+        tseOutput: Math.round(output),
+        efficiency: (output / inlet) * 100,
+        tankerTrips: trips,
+        income: income.toFixed(2),
+        savings: savings.toFixed(2),
+        totalImpact: (income + savings).toFixed(2),
+    };
+});
 
 
 // --- COMPONENTS ---
@@ -46,259 +77,26 @@ const EfficiencyPill: React.FC<{ value: number }> = ({ value }) => {
 const Dashboard: React.FC = () => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
-    const [selectedKpiMonth, setSelectedKpiMonth] = useState('All Records'); // For KPI cards
-    const [selectedDailyMonth, setSelectedDailyMonth] = useState('All Records'); // For daily table
-    const [dateRange, setDateRange] = useState<[number, number]>([0, 14]);
-
-    // Fetch data from Supabase
-    const { records, statistics, monthlyData, loading, error, filterRecords } = useStpPlant();
-
-    // Format numbers for display
-    const formatNumber = (num: number) => num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-    const formatDecimal = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-    // Helper function to parse DD/MM/YYYY format
-    const parseDateDDMMYYYY = (dateStr: string): Date | null => {
-        if (!dateStr) return null;
-        const parts = dateStr.split('/');
-        if (parts.length === 3) {
-            // DD/MM/YYYY format
-            const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
-            const year = parseInt(parts[2], 10);
-            const date = new Date(year, month, day);
-            if (!isNaN(date.getTime())) return date;
-        }
-        // Fallback to standard parsing
-        const date = new Date(dateStr);
-        return !isNaN(date.getTime()) ? date : null;
-    };
-
-    // Get unique months from records for dropdown
-    const availableMonths = React.useMemo(() => {
-        console.log('Building month list from', records.length, 'records');
-        console.log('Sample J361 values:', records.slice(0, 5).map(r => r.J361));
-
-        const months = new Set<string>();
-        records.forEach((record, index) => {
-            if (record.J361) {
-                const date = parseDateDDMMYYYY(record.J361);
-                if (date) {
-                    const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                    months.add(monthYear);
-                    if (index < 3) console.log('Parsed date:', record.J361, '->', monthYear);
-                } else {
-                    if (index < 3) console.log('Could not parse date:', record.J361);
-                }
-            }
-        });
-
-        const monthArray = ['All Records', ...Array.from(months).sort()];
-        console.log('Available months:', monthArray);
-        return monthArray;
-    }, [records]);
-
-    // Filter records for KPI cards based on selected month
-    const filteredKpiRecords = React.useMemo(() => {
-        if (selectedKpiMonth === 'All Records') return records;
-
-        return records.filter(record => {
-            if (!record.J361) return false;
-            const date = parseDateDDMMYYYY(record.J361);
-            if (date) {
-                const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                return recordMonth === selectedKpiMonth;
-            }
-            return false;
-        });
-    }, [records, selectedKpiMonth]);
-
-    // Calculate statistics for KPI cards based on filtered records
-    const filteredStatistics = React.useMemo(() => {
-        return calculateStpStatistics(filteredKpiRecords);
-    }, [filteredKpiRecords]);
-
-    // Prepare KPI data from filtered statistics
-    const kpiData = React.useMemo(() => [
-        { icon: Droplets, title: 'INLET SEWAGE', value: `${formatNumber(filteredStatistics.totalInletSewage)} m³`, subtitle: `${filteredStatistics.recordCount} records`, iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
-        { icon: Recycle, title: 'TSE FOR IRRIGATION', value: `${formatNumber(filteredStatistics.totalTreatedWater)} m³`, subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
-        { icon: Truck, title: 'TANKER TRIPS', value: `${formatNumber(filteredStatistics.totalTankerTrips)} trips`, subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
-        { icon: DollarSign, title: 'GENERATED INCOME', value: `${formatDecimal(filteredStatistics.totalTankerIncome)} OMR`, subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
-        { icon: TrendingUp, title: 'WATER SAVINGS', value: `${formatDecimal(filteredStatistics.totalWaterSavings)} OMR`, subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
-        { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: `${formatDecimal(filteredStatistics.totalEconomicImpact)} OMR`, subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
-        { icon: Percent, title: 'TREATMENT EFFICIENCY', value: `${filteredStatistics.treatmentEfficiency.toFixed(1)}%`, subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
-        { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: `${formatNumber(filteredStatistics.averageDailyInlet)} m³`, subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
-    ], [filteredStatistics, formatNumber, formatDecimal]);
-
-    // Get all unique months sorted chronologically
-    const allMonthsChronological = React.useMemo(() => {
-        const monthsWithDates: Array<{ label: string; date: Date }> = [];
-        records.forEach(record => {
-            if (record.J361) {
-                const date = parseDateDDMMYYYY(record.J361);
-                if (date) {
-                    const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                    if (!monthsWithDates.find(m => m.label === monthYear)) {
-                        monthsWithDates.push({ label: monthYear, date });
-                    }
-                }
-            }
-        });
-        return monthsWithDates.sort((a, b) => a.date.getTime() - b.date.getTime());
-    }, [records]);
-
-    // Set default month if available
-    React.useEffect(() => {
-        if (availableMonths.length > 0 && !availableMonths.includes(selectedDailyMonth)) {
-            setSelectedDailyMonth(availableMonths[0]);
-        }
-    }, [availableMonths]);
-
-    // Initialize date range to show all months
-    React.useEffect(() => {
-        if (allMonthsChronological.length > 0) {
-            setDateRange([0, Math.max(0, allMonthsChronological.length - 1)]);
-        }
-    }, [allMonthsChronological.length]);
-
-    // Handler functions for date range slider
-    const startMonthLabel = allMonthsChronological[dateRange[0]]?.label || 'N/A';
-    const endMonthLabel = allMonthsChronological[dateRange[1]]?.label || 'N/A';
-
-    const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>, index: 0 | 1) => {
-        const newRange: [number, number] = [...dateRange] as [number, number];
-        newRange[index] = parseInt(e.target.value);
-        // Ensure start <= end
-        if (index === 0 && newRange[0] > newRange[1]) newRange[1] = newRange[0];
-        if (index === 1 && newRange[1] < newRange[0]) newRange[0] = newRange[1];
-        setDateRange(newRange);
-
-        // Apply filter
-        const startDate = allMonthsChronological[newRange[0]]?.label;
-        const endDate = allMonthsChronological[newRange[1]]?.label;
-        console.log('Applying date range filter:', startDate, '-', endDate);
-    };
-
-    const handleResetRange = () => {
-        const maxIndex = Math.max(0, allMonthsChronological.length - 1);
-        setDateRange([0, maxIndex]);
-    };
-
-    // Prepare daily operations data from records (filtered by selected month)
-    const dailyOperationsData = React.useMemo(() => {
-        console.log('Filtering data for month:', selectedDailyMonth);
-
-        const filtered = records.filter(record => {
-            if (!record.J361) return false;
-            if (selectedDailyMonth === 'All Records') return true;
-
-            const date = parseDateDDMMYYYY(record.J361);
-            if (date) {
-                const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                return recordMonth === selectedDailyMonth;
-            }
-            return false;
-        });
-
-        console.log('Filtered records:', filtered.length, 'out of', records.length);
-
-        return filtered.map(record => {
-            const inlet = record['Total Inlet Sewage Received from (MB+Tnk) -m³'] || 0;
-            const output = record['Total Treated Water Produced - m³'] || 0;
-            const efficiency = inlet > 0 ? (output / inlet) * 100 : 0;
-
-            return {
-                date: record.J361 || 'N/A',
-                inlet: Math.round(inlet),
-                tseOutput: Math.round(output),
-                efficiency,
-                tankerTrips: record['Number of Tankers Discharged:'] || 0,
-                income: (record['Income from Tankers (OMR)'] || 0).toFixed(2),
-                savings: (record['Saving from TSE (OMR)'] || 0).toFixed(2),
-                totalImpact: (record['Total Saving & Income (OMR)'] || 0).toFixed(2),
-            };
-        });
-    }, [records, selectedDailyMonth]);
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-96">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
-                    <p className="mt-4 text-gray-600 dark:text-gray-400">Loading STP Plant data...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="flex items-center justify-center h-96">
-                <Card className="!p-6 max-w-md">
-                    <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-                        <AlertCircle size={24} />
-                        <div>
-                            <h3 className="font-bold text-lg">Error Loading Data</h3>
-                            <p className="text-sm mt-1">{error}</p>
-                        </div>
-                    </div>
-                </Card>
-            </div>
-        );
-    }
-
+    const [selectedDailyMonth, setSelectedDailyMonth] = useState('September 2025');
+    
     return (
         <div className="space-y-6">
             <Card className="!p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Date Range:</label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                value={startMonthLabel}
-                                readOnly
-                                className="w-full sm:w-36 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm focus:outline-none"
-                            />
-                            <span className="text-gray-500">to</span>
-                            <input
-                                type="text"
-                                value={endMonthLabel}
-                                readOnly
-                                className="w-full sm:w-36 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm focus:outline-none"
-                            />
-                        </div>
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <input type="text" value="July 2024" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
+                        <span className="text-gray-500">to</span>
+                        <input type="text" value="September 2025" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
                     </div>
-                    <button
-                        onClick={handleResetRange}
-                        className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors text-sm whitespace-nowrap"
-                    >
+                     <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Jul-24 - Sep-25</p>
+                    <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
                         Reset Range
                     </button>
                 </div>
-                <div className="relative pt-2">
-                    <div className="flex gap-2 mb-2">
-                        <input
-                            type="range"
-                            min="0"
-                            max={Math.max(0, allMonthsChronological.length - 1)}
-                            value={dateRange[0]}
-                            onChange={(e) => handleRangeChange(e, 0)}
-                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent"
-                        />
-                        <input
-                            type="range"
-                            min="0"
-                            max={Math.max(0, allMonthsChronological.length - 1)}
-                            value={dateRange[1]}
-                            onChange={(e) => handleRangeChange(e, 1)}
-                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent"
-                        />
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                        {allMonthsChronological.slice(0, 8).map((m, i) => (
-                            <span key={i} className="hidden sm:inline">{m.date.toLocaleString('en-US', { month: 'short' })}</span>
-                        ))}
+                <div className="relative pt-4">
+                     <input type="range" min="0" max="14" defaultValue="[0, 14]" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent" />
+                     <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {['Jul', 'Sep', 'Nov', 'Jan', 'Mar', 'May', 'Jul', 'Sep'].map((m, i) => <span key={i}>{m}</span>)}
                     </div>
                 </div>
             </Card>
@@ -310,30 +108,6 @@ const Dashboard: React.FC = () => {
                 </p>
             </Card>
 
-            <Card className="!p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">KPI Overview</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Filter statistics by month</p>
-                    </div>
-                    <div className="relative w-full sm:w-auto">
-                        <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Select Month</label>
-                        <div className="relative">
-                            <select
-                                value={selectedKpiMonth}
-                                onChange={(e) => setSelectedKpiMonth(e.target.value)}
-                                className="appearance-none w-full sm:min-w-[200px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer text-sm"
-                            >
-                                {availableMonths.map(month => (
-                                    <option key={month} value={month}>{month}</option>
-                                ))}
-                            </select>
-                            <ChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400" />
-                        </div>
-                    </div>
-                </div>
-            </Card>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {kpiData.map(kpi => <StpKpiCard key={kpi.title} {...kpi} />)}
             </div>
@@ -343,7 +117,7 @@ const Dashboard: React.FC = () => {
                     <h3 className="text-xl font-bold">Monthly Water Treatment Volumes (m³)</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sewage inlet vs TSE output comparison</p>
                     <ResponsiveContainer width="100%" height={300}>
-                        <AreaChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <AreaChart data={waterVolumesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="inletGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#82ca9d" stopOpacity={0.6}/><stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/></linearGradient>
                                 <linearGradient id="outputGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#ffc658" stopOpacity={0.6}/><stop offset="95%" stopColor="#ffc658" stopOpacity={0}/></linearGradient>
@@ -361,7 +135,7 @@ const Dashboard: React.FC = () => {
                 <Card>
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><DollarSign size={20} className="text-green-500"/> Monthly Economic Impact (OMR)</h3>
                      <ResponsiveContainer width="100%" height={250}>
-                        <BarChart data={monthlyData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <BarChart data={economicImpactData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} vertical={false}/>
                             <XAxis dataKey="name" stroke={tickColor} tick={{ fontSize: 12 }} />
                             <YAxis stroke={tickColor} tickFormatter={(v) => `${v/1000}k`} />
@@ -374,7 +148,7 @@ const Dashboard: React.FC = () => {
                 <Card>
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Truck size={20} className="text-orange-500"/> Monthly Tanker Operations</h3>
                      <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={monthlyData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                        <LineChart data={tankerOperationsData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#374151' : '#E5E7EB'} />
                             <XAxis dataKey="name" stroke={tickColor} tick={{ fontSize: 12 }} />
                             <YAxis stroke={tickColor} />
@@ -395,22 +169,15 @@ const Dashboard: React.FC = () => {
                         <p className="text-sm text-gray-500 dark:text-gray-400">Detailed daily STP operation records</p>
                     </div>
                     <div className="relative">
-                        <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1">Select Month for Daily View</label>
-                        <div className="relative">
-                            <select
-                                value={selectedDailyMonth}
-                                onChange={(e) => setSelectedDailyMonth(e.target.value)}
-                                className="appearance-none w-full min-w-[200px] bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer text-sm">
-                                {availableMonths.length > 0 ? (
-                                    availableMonths.map(month => (
-                                        <option key={month} value={month}>{month}</option>
-                                    ))
-                                ) : (
-                                    <option>All Records</option>
-                                )}
-                            </select>
-                            <ChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400" />
-                        </div>
+                        <label className="text-sm text-gray-500 dark:text-gray-400 block mb-1 text-right">Select Month for Daily View</label>
+                        <select 
+                            value={selectedDailyMonth}
+                            onChange={(e) => setSelectedDailyMonth(e.target.value)}
+                            className="appearance-none w-48 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
+                            <option>September 2025</option>
+                            <option>August 2025</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 absolute right-3 bottom-2.5 pointer-events-none" />
                     </div>
                 </div>
                 <div className="overflow-x-auto">

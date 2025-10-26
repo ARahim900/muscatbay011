@@ -1,8 +1,8 @@
-import React, { useMemo, ComponentType } from 'react';
+import React, { useMemo, ComponentType, useState, useRef, useEffect } from 'react';
 import Card from '../../ui/Card';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
-import { Zap, DollarSign, MapPin, TrendingUp, ChevronDown } from 'lucide-react';
+import { Zap, DollarSign, MapPin, TrendingUp, Calendar } from 'lucide-react';
 import { ElectricityMeterRaw } from '../../../data/electricityFullData';
 
 const OMR_PER_KWH = 0.025;
@@ -26,6 +26,119 @@ interface ElectricityKpiCardProps {
     color: string;
     bgColor: string;
 }
+
+const MonthRangePicker: React.FC<{
+    startMonth: string;
+    endMonth: string;
+    setStartMonth: (month: string) => void;
+    setEndMonth: (month: string) => void;
+    availableMonths: string[];
+    monthsOrder: string[];
+}> = ({ startMonth, endMonth, setStartMonth, setEndMonth, availableMonths, monthsOrder }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [selectingStart, setSelectingStart] = useState(true);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    const years = useMemo(() => {
+        const grouped: { [year: string]: string[] } = {};
+        availableMonths.forEach(month => {
+            const year = `20${month.split('-')[1]}`;
+            if (!grouped[year]) {
+                grouped[year] = [];
+            }
+            grouped[year].push(month);
+        });
+        return Object.entries(grouped).sort(([yearA], [yearB]) => yearA.localeCompare(yearB));
+    }, [availableMonths]);
+
+    const handleMonthClick = (month: string) => {
+        if (selectingStart) {
+            setStartMonth(month);
+            setEndMonth(month);
+            setSelectingStart(false);
+        } else {
+            const startIndex = monthsOrder.indexOf(startMonth);
+            const clickedIndex = monthsOrder.indexOf(month);
+            if (clickedIndex < startIndex) {
+                setStartMonth(month);
+                setEndMonth(month);
+                setSelectingStart(false);
+            } else {
+                setEndMonth(month);
+                setSelectingStart(true);
+                setIsOpen(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+                setSelectingStart(true);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [wrapperRef]);
+
+    const getMonthClass = (month: string) => {
+        const base = "w-full text-center rounded-md py-2 cursor-pointer transition-colors text-sm";
+        const startIndex = monthsOrder.indexOf(startMonth);
+        const endIndex = monthsOrder.indexOf(endMonth);
+        const currentIndex = monthsOrder.indexOf(month);
+        
+        const isInRange = currentIndex >= startIndex && currentIndex <= endIndex;
+
+        if (isInRange) {
+            if (startIndex === endIndex) return `${base} bg-accent text-white`;
+            if (currentIndex === startIndex) return `${base} bg-accent text-white rounded-r-none`;
+            if (currentIndex === endIndex) return `${base} bg-accent text-white rounded-l-none`;
+            return `${base} bg-accent/20 text-accent dark:text-accent rounded-none`;
+        }
+        return `${base} hover:bg-gray-200 dark:hover:bg-gray-600`;
+    };
+
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full sm:w-64 flex items-center justify-between bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+                <span className="font-medium">{startMonth} &ndash; {endMonth}</span>
+                <Calendar className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
+            {isOpen && (
+                <div className="absolute z-20 mt-2 w-72 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl p-3">
+                    {years.map(([year, months]) => (
+                        <div key={year}>
+                            <h4 className="font-bold text-center my-2 text-gray-700 dark:text-gray-300">{year}</h4>
+                            <div className="grid grid-cols-4 gap-1">
+                                {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((monthName) => {
+                                    const monthFullName = months.find(m => m.startsWith(monthName));
+                                    return monthFullName ? (
+                                        <button 
+                                            key={monthFullName}
+                                            onClick={() => handleMonthClick(monthFullName)}
+                                            className={getMonthClass(monthFullName)}
+                                        >
+                                            {monthName}
+                                        </button>
+                                    ) : (
+                                        <div key={monthName} className="w-full text-center rounded-md py-2 text-sm text-gray-300 dark:text-gray-600 cursor-not-allowed">{monthName}</div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 const ElectricityKpiCard: React.FC<ElectricityKpiCardProps> = ({ icon: Icon, title, value, subValue, color, bgColor }) => (
     <Card className="!p-5">
@@ -111,19 +224,14 @@ const Overview: React.FC<OverviewProps> = ({ allData, availableMonths, startMont
              <Card className="!p-4">
                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-4">
-                        <div className="relative">
-                            <select value={startMonth} onChange={(e) => setStartMonth(e.target.value)} className="w-40 appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
-                                {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
-                        </div>
-                        <span className="text-gray-500">to</span>
-                         <div className="relative">
-                            <select value={endMonth} onChange={(e) => setEndMonth(e.target.value)} className="w-40 appearance-none bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-8 focus:outline-none focus:ring-2 focus:ring-accent">
-                                {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400" />
-                        </div>
+                        <MonthRangePicker
+                            startMonth={startMonth}
+                            endMonth={endMonth}
+                            setStartMonth={setStartMonth}
+                            setEndMonth={setEndMonth}
+                            availableMonths={availableMonths}
+                            monthsOrder={monthsOrder}
+                        />
                     </div>
                     <button onClick={handleReset} className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
                         Reset Range

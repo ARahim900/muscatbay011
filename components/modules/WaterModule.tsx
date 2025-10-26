@@ -5,7 +5,7 @@ import ConsumptionByType from './water/ConsumptionByType';
 import Overview from './water/Overview';
 import Database from './water/Database';
 
-const WATER_TABS = ['Overview', 'Performance KPIs', 'Zone Analysis', 'Consumption by Type', 'Main Database'];
+const WATER_TABS = ['Overview', 'Zone Analysis', 'Consumption by Type', 'Main Database'];
 
 const WaterModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState('Overview');
