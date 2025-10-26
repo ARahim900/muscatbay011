@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025-01-25] - CodeRabbit Integration
+
+### Added
+- **CodeRabbit**: Integrated automated pull request review system
+  - Added CodeRabbit badge to README.md
+  - Created `.coderabbit.yaml` configuration file
+  - Configured automated code reviews for TypeScript, JavaScript, React files
+  - Enabled PR description enhancement and commit message suggestions
+  - Configured path filters to exclude test files, CSV, and SQL files
+
 ## [2025-01-25] - STP Plant Month Filter Dropdown Fix
 
 ### Fixed ✅
