@@ -5,6 +5,7 @@ import { useDarkMode } from '../../../context/DarkModeContext';
 import { Droplets, Recycle, Truck, DollarSign, TrendingUp, BarChart2, Percent, Droplets as DropletsIcon, Plus, ChevronDown, AlertCircle } from 'lucide-react';
 import { useStpPlant } from '../../../hooks/useStpPlant';
 import type { StpPlantRecord } from '../../../lib/stpPlantService';
+import { calculateStpStatistics } from '../../../lib/stpPlantService';
 
 
 // --- COMPONENTS ---
@@ -45,26 +46,33 @@ const EfficiencyPill: React.FC<{ value: number }> = ({ value }) => {
 const Dashboard: React.FC = () => {
     const { isDarkMode } = useDarkMode();
     const tickColor = isDarkMode ? '#A1A1AA' : '#6B7280';
-    const [selectedDailyMonth, setSelectedDailyMonth] = useState('September 2025');
+    const [selectedKpiMonth, setSelectedKpiMonth] = useState('All Records'); // For KPI cards
+    const [selectedDailyMonth, setSelectedDailyMonth] = useState('All Records'); // For daily table
+    const [dateRange, setDateRange] = useState<[number, number]>([0, 14]);
 
     // Fetch data from Supabase
-    const { records, statistics, monthlyData, loading, error } = useStpPlant();
+    const { records, statistics, monthlyData, loading, error, filterRecords } = useStpPlant();
 
     // Format numbers for display
     const formatNumber = (num: number) => num.toLocaleString('en-US', { maximumFractionDigits: 0 });
     const formatDecimal = (num: number) => num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Prepare KPI data from live statistics
-    const kpiData = [
-        { icon: Droplets, title: 'INLET SEWAGE', value: `${formatNumber(statistics.totalInletSewage)} m³`, subtitle: `${statistics.recordCount} records`, iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
-        { icon: Recycle, title: 'TSE FOR IRRIGATION', value: `${formatNumber(statistics.totalTreatedWater)} m³`, subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
-        { icon: Truck, title: 'TANKER TRIPS', value: `${formatNumber(statistics.totalTankerTrips)} trips`, subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
-        { icon: DollarSign, title: 'GENERATED INCOME', value: `${formatDecimal(statistics.totalTankerIncome)} OMR`, subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
-        { icon: TrendingUp, title: 'WATER SAVINGS', value: `${formatDecimal(statistics.totalWaterSavings)} OMR`, subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
-        { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: `${formatDecimal(statistics.totalEconomicImpact)} OMR`, subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
-        { icon: Percent, title: 'TREATMENT EFFICIENCY', value: `${statistics.treatmentEfficiency.toFixed(1)}%`, subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
-        { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: `${formatNumber(statistics.averageDailyInlet)} m³`, subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
-    ];
+    // Helper function to parse DD/MM/YYYY format
+    const parseDateDDMMYYYY = (dateStr: string): Date | null => {
+        if (!dateStr) return null;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            // DD/MM/YYYY format
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; // Months are 0-indexed
+            const year = parseInt(parts[2], 10);
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) return date;
+        }
+        // Fallback to standard parsing
+        const date = new Date(dateStr);
+        return !isNaN(date.getTime()) ? date : null;
+    };
 
     // Get unique months from records for dropdown
     const availableMonths = React.useMemo(() => {
@@ -74,29 +82,69 @@ const Dashboard: React.FC = () => {
         const months = new Set<string>();
         records.forEach((record, index) => {
             if (record.J361) {
-                // Extract month/year from date (assuming format like "2025-09-01" or similar)
-                try {
-                    const date = new Date(record.J361);
-                    if (!isNaN(date.getTime())) {
-                        const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                        months.add(monthYear);
-                        if (index < 3) console.log('Parsed date:', record.J361, '->', monthYear);
-                    } else {
-                        // If not a valid date, just use the value as-is
-                        months.add(record.J361);
-                        if (index < 3) console.log('Using raw value:', record.J361);
-                    }
-                } catch {
-                    // If date parsing fails, try to extract month from string
-                    months.add(record.J361);
-                    if (index < 3) console.log('Catch: Using raw value:', record.J361);
+                const date = parseDateDDMMYYYY(record.J361);
+                if (date) {
+                    const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                    months.add(monthYear);
+                    if (index < 3) console.log('Parsed date:', record.J361, '->', monthYear);
+                } else {
+                    if (index < 3) console.log('Could not parse date:', record.J361);
                 }
             }
         });
 
-        const monthArray = Array.from(months).sort();
+        const monthArray = ['All Records', ...Array.from(months).sort()];
         console.log('Available months:', monthArray);
         return monthArray;
+    }, [records]);
+
+    // Filter records for KPI cards based on selected month
+    const filteredKpiRecords = React.useMemo(() => {
+        if (selectedKpiMonth === 'All Records') return records;
+
+        return records.filter(record => {
+            if (!record.J361) return false;
+            const date = parseDateDDMMYYYY(record.J361);
+            if (date) {
+                const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                return recordMonth === selectedKpiMonth;
+            }
+            return false;
+        });
+    }, [records, selectedKpiMonth]);
+
+    // Calculate statistics for KPI cards based on filtered records
+    const filteredStatistics = React.useMemo(() => {
+        return calculateStpStatistics(filteredKpiRecords);
+    }, [filteredKpiRecords]);
+
+    // Prepare KPI data from filtered statistics
+    const kpiData = React.useMemo(() => [
+        { icon: Droplets, title: 'INLET SEWAGE', value: `${formatNumber(filteredStatistics.totalInletSewage)} m³`, subtitle: `${filteredStatistics.recordCount} records`, iconColor: 'text-yellow-500', bgColor: 'bg-yellow-100 dark:bg-yellow-900/50' },
+        { icon: Recycle, title: 'TSE FOR IRRIGATION', value: `${formatNumber(filteredStatistics.totalTreatedWater)} m³`, subtitle: 'Recycled water output', iconColor: 'text-green-500', bgColor: 'bg-green-100 dark:bg-green-900/50' },
+        { icon: Truck, title: 'TANKER TRIPS', value: `${formatNumber(filteredStatistics.totalTankerTrips)} trips`, subtitle: '@ 4.50 OMR/Trip', iconColor: 'text-blue-500', bgColor: 'bg-blue-100 dark:bg-blue-900/50' },
+        { icon: DollarSign, title: 'GENERATED INCOME', value: `${formatDecimal(filteredStatistics.totalTankerIncome)} OMR`, subtitle: 'Tanker discharge fees', iconColor: 'text-red-500', bgColor: 'bg-red-100 dark:bg-red-900/50' },
+        { icon: TrendingUp, title: 'WATER SAVINGS', value: `${formatDecimal(filteredStatistics.totalWaterSavings)} OMR`, subtitle: '@ 1.32 OMR per m³ TSE', iconColor: 'text-purple-500', bgColor: 'bg-purple-100 dark:bg-purple-900/50' },
+        { icon: BarChart2, title: 'TOTAL ECONOMIC IMPACT', value: `${formatDecimal(filteredStatistics.totalEconomicImpact)} OMR`, subtitle: 'Income + Savings', iconColor: 'text-teal-500', bgColor: 'bg-teal-100 dark:bg-teal-900/50' },
+        { icon: Percent, title: 'TREATMENT EFFICIENCY', value: `${filteredStatistics.treatmentEfficiency.toFixed(1)}%`, subtitle: 'TSE output vs inlet ratio', iconColor: 'text-orange-500', bgColor: 'bg-orange-100 dark:bg-orange-900/50' },
+        { icon: DropletsIcon, title: 'DAILY AVERAGE INLET', value: `${formatNumber(filteredStatistics.averageDailyInlet)} m³`, subtitle: 'Average daily input', iconColor: 'text-lime-500', bgColor: 'bg-lime-100 dark:bg-lime-900/50' },
+    ], [filteredStatistics, formatNumber, formatDecimal]);
+
+    // Get all unique months sorted chronologically
+    const allMonthsChronological = React.useMemo(() => {
+        const monthsWithDates: Array<{ label: string; date: Date }> = [];
+        records.forEach(record => {
+            if (record.J361) {
+                const date = parseDateDDMMYYYY(record.J361);
+                if (date) {
+                    const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                    if (!monthsWithDates.find(m => m.label === monthYear)) {
+                        monthsWithDates.push({ label: monthYear, date });
+                    }
+                }
+            }
+        });
+        return monthsWithDates.sort((a, b) => a.date.getTime() - b.date.getTime());
     }, [records]);
 
     // Set default month if available
@@ -106,22 +154,50 @@ const Dashboard: React.FC = () => {
         }
     }, [availableMonths]);
 
+    // Initialize date range to show all months
+    React.useEffect(() => {
+        if (allMonthsChronological.length > 0) {
+            setDateRange([0, Math.max(0, allMonthsChronological.length - 1)]);
+        }
+    }, [allMonthsChronological.length]);
+
+    // Handler functions for date range slider
+    const startMonthLabel = allMonthsChronological[dateRange[0]]?.label || 'N/A';
+    const endMonthLabel = allMonthsChronological[dateRange[1]]?.label || 'N/A';
+
+    const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>, index: 0 | 1) => {
+        const newRange: [number, number] = [...dateRange] as [number, number];
+        newRange[index] = parseInt(e.target.value);
+        // Ensure start <= end
+        if (index === 0 && newRange[0] > newRange[1]) newRange[1] = newRange[0];
+        if (index === 1 && newRange[1] < newRange[0]) newRange[0] = newRange[1];
+        setDateRange(newRange);
+
+        // Apply filter
+        const startDate = allMonthsChronological[newRange[0]]?.label;
+        const endDate = allMonthsChronological[newRange[1]]?.label;
+        console.log('Applying date range filter:', startDate, '-', endDate);
+    };
+
+    const handleResetRange = () => {
+        const maxIndex = Math.max(0, allMonthsChronological.length - 1);
+        setDateRange([0, maxIndex]);
+    };
+
     // Prepare daily operations data from records (filtered by selected month)
     const dailyOperationsData = React.useMemo(() => {
         console.log('Filtering data for month:', selectedDailyMonth);
 
         const filtered = records.filter(record => {
-            if (!record.J361 || !selectedDailyMonth) return true;
-            try {
-                const date = new Date(record.J361);
-                if (!isNaN(date.getTime())) {
-                    const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-                    return recordMonth === selectedDailyMonth;
-                }
-            } catch {
-                return record.J361.includes(selectedDailyMonth);
+            if (!record.J361) return false;
+            if (selectedDailyMonth === 'All Records') return true;
+
+            const date = parseDateDDMMYYYY(record.J361);
+            if (date) {
+                const recordMonth = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+                return recordMonth === selectedDailyMonth;
             }
-            return true;
+            return false;
         });
 
         console.log('Filtered records:', filtered.length, 'out of', records.length);
@@ -174,21 +250,55 @@ const Dashboard: React.FC = () => {
     return (
         <div className="space-y-6">
             <Card className="!p-4">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <input type="text" value="July 2024" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
-                        <span className="text-gray-500">to</span>
-                        <input type="text" value="September 2025" readOnly className="w-40 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 focus:outline-none"/>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Date Range:</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={startMonthLabel}
+                                readOnly
+                                className="w-full sm:w-36 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm focus:outline-none"
+                            />
+                            <span className="text-gray-500">to</span>
+                            <input
+                                type="text"
+                                value={endMonthLabel}
+                                readOnly
+                                className="w-full sm:w-36 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-3 text-sm focus:outline-none"
+                            />
+                        </div>
                     </div>
-                     <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Jul-24 - Sep-25</p>
-                    <button className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors">
+                    <button
+                        onClick={handleResetRange}
+                        className="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary/90 transition-colors text-sm whitespace-nowrap"
+                    >
                         Reset Range
                     </button>
                 </div>
-                <div className="relative pt-4">
-                     <input type="range" min="0" max="14" defaultValue="[0, 14]" className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent" />
-                     <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {['Jul', 'Sep', 'Nov', 'Jan', 'Mar', 'May', 'Jul', 'Sep'].map((m, i) => <span key={i}>{m}</span>)}
+                <div className="relative pt-2">
+                    <div className="flex gap-2 mb-2">
+                        <input
+                            type="range"
+                            min="0"
+                            max={Math.max(0, allMonthsChronological.length - 1)}
+                            value={dateRange[0]}
+                            onChange={(e) => handleRangeChange(e, 0)}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent"
+                        />
+                        <input
+                            type="range"
+                            min="0"
+                            max={Math.max(0, allMonthsChronological.length - 1)}
+                            value={dateRange[1]}
+                            onChange={(e) => handleRangeChange(e, 1)}
+                            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-accent"
+                        />
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                        {allMonthsChronological.slice(0, 8).map((m, i) => (
+                            <span key={i} className="hidden sm:inline">{m.date.toLocaleString('en-US', { month: 'short' })}</span>
+                        ))}
                     </div>
                 </div>
             </Card>
@@ -198,6 +308,30 @@ const Dashboard: React.FC = () => {
                     Current STP economic rates applied when missing in records: <span className="font-semibold text-gray-800 dark:text-white">Discharge Fee = 4.50 OMR/trip</span>, <span className="font-semibold text-gray-800 dark:text-white">TSE Saving = 1.32 OMR per m³.</span>
                     <span className="text-xs ml-2 text-gray-400">Tip: Update rates in data if they change; page auto-computes totals accordingly.</span>
                 </p>
+            </Card>
+
+            <Card className="!p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-white">KPI Overview</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Filter statistics by month</p>
+                    </div>
+                    <div className="relative w-full sm:w-auto">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Select Month</label>
+                        <div className="relative">
+                            <select
+                                value={selectedKpiMonth}
+                                onChange={(e) => setSelectedKpiMonth(e.target.value)}
+                                className="appearance-none w-full sm:min-w-[200px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md py-2 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-accent cursor-pointer text-sm"
+                            >
+                                {availableMonths.map(month => (
+                                    <option key={month} value={month}>{month}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="w-5 h-5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 dark:text-gray-400" />
+                        </div>
+                    </div>
+                </div>
             </Card>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

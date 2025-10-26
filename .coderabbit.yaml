@@ -12,6 +12,10 @@ review:
   # Comment on draft pull requests
   draft_review: true
   
+  # Review sensitivity level
+  # Options: "chill" (critical issues only) or "assertive" (comprehensive feedback)
+  type: assertive
+  
   # Review file patterns (include/exclude)
   paths:
     include:
@@ -99,4 +103,34 @@ ignore:
     - "*.sql"
     - "RLS-FIX-*.sql"
     - "test-*.ts"
+
+# Code quality and security tools
+# CodeRabbit can integrate with 40+ linters and security tools
+# Configure these tools below to catch bugs, security issues, and code quality problems
+tools:
+  # ESLint for JavaScript/TypeScript linting
+  eslint:
+    enabled: true
+    # Auto-fix common issues
+    auto_fix: true
+  
+  # TypeScript compiler checks
+  typescript:
+    enabled: true
+  
+  # React-specific linting
+  react:
+    enabled: true
+  
+  # Dependency vulnerability scanning
+  npm_audit:
+    enabled: true
+  
+  # Code complexity analysis
+  complexity:
+    enabled: true
+  
+  # Security scanning
+  security:
+    enabled: true
 
