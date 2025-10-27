@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Card from '../../ui/Card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, Brush } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
 import { RefreshCw, ChevronDown, Plus, Search, MoreVertical, ArrowUpDown } from 'lucide-react';
 
@@ -197,6 +198,7 @@ const ZoneAnalysis: React.FC = () => {
                         <Area type="monotone" dataKey="Individual Total" stroke="none" fill="url(#consumptionGradient)" />
                         <Line type="monotone" dataKey="Zone Bulk" stroke="#3b82f6" strokeWidth={2} dot={false} />
                         <Line type="monotone" dataKey="Individual Total" stroke="#00D2B3" strokeWidth={2} dot={false} />
+                        <Brush dataKey="name" height={30} stroke="#00D2B3" fill={isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'} />
                     </AreaChart>
                 </ResponsiveContainer>
             </Card>

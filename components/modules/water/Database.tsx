@@ -30,8 +30,8 @@ const Database: React.FC = () => {
                 .select('*');
 
             if (error) {
-                console.error('Error fetching data from Supabase:', error);
-                setError('Failed to load water meter data. Please ensure a "water_meters" table exists and Realtime is enabled.');
+                console.error('Error fetching data from Supabase:', error.message);
+                setError(`Failed to load water meter data: ${error.message}. Please ensure a "water_meters" table exists and Realtime is enabled.`);
             } else {
                 setMeters(data || []);
             }

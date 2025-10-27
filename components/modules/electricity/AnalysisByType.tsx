@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import Card from '../../ui/Card';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Brush } from 'recharts';
 import { useDarkMode } from '../../../context/DarkModeContext';
 import { ElectricityMeterRaw } from '../../../data/electricityFullData';
 import { Calendar } from 'lucide-react';
@@ -262,6 +263,7 @@ const AnalysisByType: React.FC<AnalysisByTypeProps> = ({ allData, availableMonth
                         <YAxis stroke={tickColor} tickFormatter={(tick) => `${tick / 1000}k`} />
                         <Tooltip contentStyle={{ backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF', borderColor: isDarkMode ? '#374151' : '#E5E7EB' }} />
                         <Area type="monotone" dataKey="kWh" stroke="#00D2B3" strokeWidth={3} fill="url(#analysisGradient)" />
+                        <Brush dataKey="name" height={30} stroke="#00D2B3" fill={isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'} />
                     </AreaChart>
                 </ResponsiveContainer>
             </Card>

@@ -37,8 +37,8 @@ const Database: React.FC = () => {
             if (!isMounted) return;
 
             if (dbError) {
-                console.error('Error fetching data from Supabase:', dbError);
-                setError('Could not connect to the database. Showing sample data.');
+                console.error('Error fetching data from Supabase:', dbError.message);
+                setError(`Could not connect to the database: ${dbError.message}. Showing sample data.`);
                 setMeters(electricityMockData);
                 setIsMockData(true);
             } else if (data && data.length > 0) {
@@ -166,7 +166,7 @@ const Database: React.FC = () => {
                     )}
                 </div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {isMockData ? error : "Search and manage all electricity meters"}
+                    {error || "Search and manage all electricity meters"}
                 </p>
             </div>
             
